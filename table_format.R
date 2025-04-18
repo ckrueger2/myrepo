@@ -23,11 +23,11 @@ my_bucket <- Sys.getenv('WORKSPACE_BUCKET')
 
 #PERFORM COMMAND LINE FORMATTING FOR rsID VCF FILE
 #download reference genome
-command <- paste0("wget https://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/All_20180418.vcf.gz")
-system(command)
+#command <- paste0("wget https://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/All_20180418.vcf.gz")
+#system(command)
 
 #create file of chr and pos columns only to use for filtering
-command2 <- paste0("gsutil cat ", my_bucket, "/data/", args$pop, "filtered_", args$phecode, ".tsv | awk 'NR > 1 {print $8, $9}' > subset_", args$phecode, ".tsv")
+command2 <- paste0("gsutil cat ", my_bucket, "/data/", args$pop, "_filtered_", args$phecode, ".tsv | awk 'NR > 1 {print $8, $9}' > subset_", args$phecode, ".tsv")
 system(command2)
 
 #remove chr prefix

@@ -27,23 +27,23 @@ my_bucket <- Sys.getenv('WORKSPACE_BUCKET')
 #system(command)
 
 #create file of chr and pos columns only to use for filtering
-command2 <- paste0("gsutil cat ", my_bucket, "/data/", args$pop, "_filtered_", args$phecode, ".tsv | awk 'NR > 1 {print $8, $9}' > subset_", args$phecode, ".tsv")
+command2 <- paste0("gsutil cat ", my_bucket, "/data/", args$pop, "_filtered_", args$phecode, ".tsv | awk 'NR > 1 {print $8, $9}' > /tmp/subset_", args$phecode, ".tsv")
 system(command2)
 
 #remove chr prefix
-command3 <- paste0("sed -e 's/chr//' -e 's/^X /23 /' subset_", args$phecode, ".tsv > nochr", args$phecode, ".tsv")
+command3 <- paste0("sed -e 's/chr//' -e 's/^X /23 /' /tmp/subset_", args$phecode, ".tsv > /tmp/nochr", args$phecode, ".tsv")
 system(command3)
 
 #filter large file, eliminating SNPs not present in sumstats file
-command4 <- paste0("zcat All_20180418.vcf.gz | awk 'NR==FNR {a[$1\" \"$2]=1; next} !/^#/ && ($1\" \"$2) in a' nochr", args$phecode, ".tsv - > /tmp/filtered_20180418.vcf")
+command4 <- paste0("zcat All_20180418.vcf.gz | awk 'NR==FNR {a[$1\" \"$2]=1; next} !/^#/ && ($1\" \"$2) in a' /tmp/nochr", args$phecode, ".tsv - > /tmp/filtered_20180418.vcf")
 system(command4)
 
 #remove metadata rows
-command5 <- paste0("awk '!/^##/' /tmp/filtered_20180418.vcf > ", args$phecode, "ref.vcf")
+command5 <- paste0("awk '!/^##/' /tmp/filtered_20180418.vcf > /tmp/", args$phecode, "ref.vcf")
 system(command5)
 
 #copy to bucket
-command6 <- paste0("gsutil cp ", args$phecode, "ref.vcf ", my_bucket, "/data/")
+command6 <- paste0("gsutil cp /tmp/", args$phecode, "ref.vcf ", my_bucket, "/data/")
 system(command6)
 
 #check bucket for vcf file
@@ -56,24 +56,28 @@ if (check_result != 0) {
 }
 
 #PERFORM COMMAND LINE FORMATTING FOR S-PREDIXCAN FILE
+#upload GTEx SNP file to workspace bucket
+command7 <- paste0("gsutil -m cp -v /myrepo/predixcan_models_varids-effallele.txt.gz ", my_bucket, "/data/")
+system(command7, intern=TRUE)
+
 #unzip files
-command7 <- paste0("gsutil cat ", my_bucket, "/data/predixcan_models_varids-effallele.txt.gz | gunzip > /tmp/predixcan_models_varids-effallele.txt")
-system(command7)
+command8 <- paste0("gsutil cat ", my_bucket, "/data/predixcan_models_varids-effallele.txt.gz | gunzip > /tmp/predixcan_models_varids-effallele.txt")
+system(command8)
 
 #format reference file
 system("awk -F'[,:]' 'NR>1 {print $1\":\"$2}' /tmp/predixcan_models_varids-effallele.txt > /tmp/chrpos_allele_table.tsv", intern=TRUE)
 
 #make temp files
-command8 <- paste0("gsutil cp ", my_bucket, "/data/full_", args$phecode,".tsv /tmp/")
-system(command8)
-
-#filter SNPs
-command9 <- paste0("awk 'NR==FNR {a[$1]; next} ($1) in a' /tmp/chrpos_allele_table.tsv /tmp/full_", args$phecode, ".tsv > /tmp/gtex_", args$phecode, ".tsv")
+command9 <- paste0("gsutil cp ", my_bucket, "/data/full_", args$phecode,".tsv /tmp/")
 system(command9)
 
-#save to bucket
-command10 <- paste0("gsutil cp /tmp/gtex_", args$phecode, ".tsv ", my_bucket, "/data/gtex_", args$phecode,".tsv")
+#filter SNPs
+command10 <- paste0("awk 'NR==FNR {a[$1]; next} ($1) in a' /tmp/chrpos_allele_table.tsv /tmp/full_", args$phecode, ".tsv > /tmp/gtex_", args$phecode, ".tsv")
 system(command10)
+
+#save to bucket
+command11 <- paste0("gsutil cp /tmp/gtex_", args$phecode, ".tsv ", my_bucket, "/data/gtex_", args$phecode,".tsv")
+system(command11)
 
 #check bucket
 check_result2 <- system(paste0("gsutil ls ", my_bucket, "/data/ | grep gtex_", args$phecode, ".tsv"), ignore.stderr = TRUE)
@@ -238,7 +242,7 @@ system(paste0("gsutil cp ./", filtered_destination_filename, " ", my_bucket, "/d
 
 #CHECK IF FILES ARE IN THE BUCKET
 #GTEx file
-check_gtex <- system(paste0("gsutil ls ", my_bucket, "/data/ | grep ", gtex_destination_filename), ignore.stderr = TRUE, intern=TRUE)
+check_gtex <- system(paste0("gsutil ls ", my_bucket, "/data/ | grep ", gtex_destination_filename), ignore.stderr = TRUE)
 
 if (check_gtex != 0) {
   stop(paste0("ERROR: File '", gtex_destination_filename, "' was not found in bucket ", my_bucket, "/data/"))
@@ -247,7 +251,7 @@ if (check_gtex != 0) {
 }
 
 #filtered file
-check_filtered <- system(paste0("gsutil ls ", my_bucket, "/data/ | grep ", filtered_destination_filename), ignore.stderr = TRUE, intern=TRUE)
+check_filtered <- system(paste0("gsutil ls ", my_bucket, "/data/ | grep ", filtered_destination_filename), ignore.stderr = TRUE)
 
 if (check_filtered != 0) {
   stop(paste0("ERROR: File '", filtered_destination_filename, "' was not found in bucket ", my_bucket, "/data/"))
